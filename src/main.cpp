@@ -34,10 +34,8 @@ MPU6050 mpu;
 
 // Maze Setup
 #define MAZE_SIZE 5
-int goalX = 4;
-int goalY = 0;
-int startX = 0;
-int startY = 4;
+int goalX = 2, goalY = 1;
+int startX = 0, startY = 4;
 
 enum Direction {NORTH, EAST, SOUTH, WEST};
 int dx[4] = {0, 1, 0, -1};
@@ -144,8 +142,7 @@ void turnRight90()
   stopMotors();
 }
 
-void turnLeft90()
-{
+void turnLeft90(){
   carData["move"] = "L";
   String data;
   serializeJson(carData, data);
@@ -201,6 +198,11 @@ void scanMaze(int x, int y, Direction dir) {
   frontDist = sonarFront.ping_cm();  // Distance in front of the robot
   leftDist  = sonarLeft.ping_cm();   // Distance on the left
   rightDist = sonarRight.ping_cm();  // Distance on the right
+
+  // if any sensor reads distance close to MAX_DISTANCE, set it to MAX_DISTANCE
+  if (frontDist >= MAX_DISTANCE - 10) frontDist = MAX_DISTANCE;
+  if (leftDist  >= MAX_DISTANCE - 10) leftDist  = MAX_DISTANCE;
+  if (rightDist >= MAX_DISTANCE - 10) rightDist = MAX_DISTANCE;
 
   // Step 3: Mark walls based on sensor readings
   // If wall detected in front, mark the wall in the current direction
