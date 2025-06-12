@@ -13,7 +13,7 @@ BluetoothSerial serialBle;
 JsonDocument carData;
 
 // Ultrasonic Sensor Pinout
-#define TRIG_FRONT 23
+#define TRIG_FRONT 23 
 #define ECHO_FRONT 22
 #define TRIG_LEFT 32
 #define ECHO_LEFT 33
