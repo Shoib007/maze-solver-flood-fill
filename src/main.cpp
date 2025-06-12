@@ -1,4 +1,3 @@
-
 #include <Arduino.h>
 #include <Wire.h>
 #include <MPU6050.h>
@@ -23,7 +22,7 @@ JsonDocument carData;
 
 #define WALL_DISTANCE 20
 #define CAR_SPEED 40
-#define CAR_MOVE_DELAY 1000
+#define CAR_MOVE_DELAY 1600
 
 NewPing sonarFront(TRIG_FRONT, ECHO_FRONT, MAX_DISTANCE);
 NewPing sonarLeft(TRIG_LEFT, ECHO_LEFT, MAX_DISTANCE);
@@ -88,6 +87,107 @@ const int channelB = 2;
 
 float yaw = 0;
 unsigned long lastTime;
+
+// Integrate gyro data to calculate yaw
+void updateYaw()
+{
+  int16_t gx, gy, gz;
+  mpu.getRotation(&gx, &gy, &gz);
+
+  unsigned long now = millis();
+  float dt = (now - lastTime) / 1000.0; // in seconds
+  lastTime = now;
+
+  float gz_dps = gz / 131.0; // convert to deg/sec
+  yaw += gz_dps * dt;
+}
+
+void stopMotors()
+{
+  carData["move"] = "S";
+  String data;
+  serializeJson(carData, data);
+  serialBle.println(data);
+  ledcWrite(PWMA, 0);
+  ledcWrite(PWMB, 0);
+  digitalWrite(AIN1, LOW);
+  digitalWrite(AIN2, LOW);
+  digitalWrite(BIN1, LOW);
+  digitalWrite(BIN2, LOW);
+}
+
+void turnRight90()
+{
+  carData["move"] = "R";
+  String data;
+  serializeJson(carData, data);
+  serialBle.println(data);
+  yaw = 0;
+  lastTime = millis();
+  // Begin slow right turn: Left motor forward, Right motor backward
+  ledcWrite(PWMA, CAR_SPEED); // Low speed
+  digitalWrite(AIN1, 0);
+  digitalWrite(AIN2, 1);
+
+  ledcWrite(PWMB, CAR_SPEED);
+  digitalWrite(BIN1, 1);
+  digitalWrite(BIN2, 0);
+
+  while (yaw < 80)
+  {
+    updateYaw();
+    Serial.print("Yaw: ");
+    Serial.println(yaw);
+    delay(2);
+  }
+
+  stopMotors();
+}
+
+void turnLeft90()
+{
+  carData["move"] = "L";
+  String data;
+  serializeJson(carData, data);
+  serialBle.println(data);
+  yaw = 0;
+  lastTime = millis();
+
+  // Begin slow right turn: Left motor forward, Right motor backward
+  ledcWrite(PWMA, CAR_SPEED); // Low speed
+  digitalWrite(AIN1, 1);
+  digitalWrite(AIN2, 0);
+
+  ledcWrite(PWMB, CAR_SPEED);
+  digitalWrite(BIN1, 0);
+  digitalWrite(BIN2, 1);
+
+  while (yaw > -80)
+  {
+    updateYaw();
+    Serial.print("Yaw: ");
+    Serial.println(yaw);
+    delay(2);
+  }
+  stopMotors();
+}
+
+
+
+void moveForward()
+{
+  carData["move"] = "F";
+  String data;
+  serializeJson(carData, data);
+  serialBle.println(data);
+  digitalWrite(AIN1, HIGH);
+  digitalWrite(AIN2, LOW);
+  digitalWrite(BIN1, HIGH);
+  digitalWrite(BIN2, LOW);
+  ledcWrite(PWMA, CAR_SPEED); // Adjust speed
+  ledcWrite(PWMB, CAR_SPEED);
+}
+
 
 // Recursive maze scanner
 void scanMaze(int x, int y, Direction dir) {
@@ -176,21 +276,6 @@ void scanMaze(int x, int y, Direction dir) {
 }
 
 
-
-void moveForward()
-{
-  carData["move"] = "F";
-  String data;
-  serializeJson(carData, data);
-  serialBle.println(data);
-  digitalWrite(AIN1, HIGH);
-  digitalWrite(AIN2, LOW);
-  digitalWrite(BIN1, HIGH);
-  digitalWrite(BIN2, LOW);
-  ledcWrite(PWMA, CAR_SPEED); // Adjust speed
-  ledcWrite(PWMB, CAR_SPEED);
-}
-
 void setup()
 {
   serialBle.begin("MazeRobot");
@@ -231,90 +316,6 @@ void setup()
 
 void loop()
 {
-
+  scanMaze(startX, startY, currentDir);
 }
 
-void turnRight90()
-{
-  carData["move"] = "R";
-  String data;
-  serializeJson(carData, data);
-  serialBle.println(data);
-  yaw = 0;
-  lastTime = millis();
-  // Begin slow right turn: Left motor forward, Right motor backward
-  ledcWrite(PWMA, CAR_SPEED); // Low speed
-  digitalWrite(AIN1, 0);
-  digitalWrite(AIN2, 1);
-
-  ledcWrite(PWMB, CAR_SPEED);
-  digitalWrite(BIN1, 1);
-  digitalWrite(BIN2, 0);
-
-  while (yaw < 80)
-  {
-    updateYaw();
-    Serial.print("Yaw: ");
-    Serial.println(yaw);
-    delay(2);
-  }
-
-  stopMotors();
-}
-
-void turnLeft90()
-{
-  carData["move"] = "L";
-  String data;
-  serializeJson(carData, data);
-  serialBle.println(data);
-  yaw = 0;
-  lastTime = millis();
-
-  // Begin slow right turn: Left motor forward, Right motor backward
-  ledcWrite(PWMA, CAR_SPEED); // Low speed
-  digitalWrite(AIN1, 1);
-  digitalWrite(AIN2, 0);
-
-  ledcWrite(PWMB, CAR_SPEED);
-  digitalWrite(BIN1, 0);
-  digitalWrite(BIN2, 1);
-
-  while (yaw > -80)
-  {
-    updateYaw();
-    Serial.print("Yaw: ");
-    Serial.println(yaw);
-    delay(2);
-  }
-
-  stopMotors();
-}
-
-void stopMotors()
-{
-  carData["move"] = "S";
-  String data;
-  serializeJson(carData, data);
-  serialBle.println(data);
-  ledcWrite(PWMA, 0);
-  ledcWrite(PWMB, 0);
-  digitalWrite(AIN1, LOW);
-  digitalWrite(AIN2, LOW);
-  digitalWrite(BIN1, LOW);
-  digitalWrite(BIN2, LOW);
-}
-
-// Integrate gyro data to calculate yaw
-void updateYaw()
-{
-  int16_t gx, gy, gz;
-  mpu.getRotation(&gx, &gy, &gz);
-
-  unsigned long now = millis();
-  float dt = (now - lastTime) / 1000.0; // in seconds
-  lastTime = now;
-
-  float gz_dps = gz / 131.0; // convert to deg/sec
-  yaw += gz_dps * dt;
-}
